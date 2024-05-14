@@ -44,7 +44,7 @@ Users can only interact with jobs that they started.
 
 ### UX - CLI
 Scenarios<br />
-Start a job:<br/ >
+Start a job:<br />
 caller provides the command and arguments in a single string *** explore options 
 `jws start -c "ls -l" -u alex`<br />
 returns the unique identifier of the job 
@@ -78,10 +78,11 @@ returns:
 ...
 
 from a second terminal:<br />
-`jsw stop -j 100 -u alex`
+`jsw stop -j 100 -u alex`<br />
 returns success (no error)
 
-in the previous terminal: (`jws output -j 100 -u alex`)<br />
+in the previous terminal:<br />
+`jws output -j 100 -u alex`<br />
 sees:
 ... <insert output here>
 
@@ -129,17 +130,17 @@ message GetJobOutputResponse {
 ###  Design Details
 
 #### Client
-Uses gRPC to connect to the server, implements the CLI described above. 
-Lifetime: is alive for the duration of the gRPC call, will exit upon completion. 
-For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly. 
-(ctrl-c can also be used for Start/Stop/GetStatus as well) 
+Uses gRPC to connect to the server, implements the CLI described above.<br />
+Lifetime: is alive for the duration of the gRPC call, will exit upon completion.<br />
+For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly.<br />
+(ctrl-c can also be used for Start/Stop/GetStatus as well)<br />
 
 #### Server
-Must be run using `sudo` (required for cgroup actions) 
-Will be executed within a docker container running Linux to enable the usage of cgroups 
-Implements the gRPC server for the JobWorkerService described above. 
-Supports concurrent connections. 
-Must be able to handle cancellation of all gRPC calls: start/stop/getStatus/getOutput 
+Must be run using `sudo` (required for cgroup actions)<br />
+Will be executed within a docker container running Linux to enable the usage of cgroups<br />
+Implements the gRPC server for the JobWorkerService described above.<br />
+Supports concurrent connections.<br />
+Must be able to handle cancellation of all gRPC calls: start/stop/getStatus/getOutput<br />
 Must be able to handle a clean shutdown:
 * Stop processing inbound requests
 * Stop any running jobs
