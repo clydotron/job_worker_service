@@ -7,13 +7,13 @@ state: draft
 Job worker service that provides an API to run arbitrary Linux processes.
 
 ## Details
-<Brief description>
 
 ### Security
 Use mTLS for gRPC communication.
 
 Required files:
 | File | Description |
+| --- | --- |
 | server_cert.pem | the server's certificate (public key) |
 | server_key.pem | the server's private key |
 | server_ca_cert.pem | the certificate of the CA that can verify the server's certificate. |
@@ -47,10 +47,13 @@ returns the unique identifier of the job
 
 Stop a job:
 `jws stop -j <job_id> -u alex`
+
 returns an error if something went wrong (unknown user, invalid job_id, access denied)
+
 
 Get the status of a job:
 `jws status -j <job_id>`
+
 returns the status of the job: "Pending, Active, Terminated"
   or an error: (uknown user, invalid job_id, access denied)
 
