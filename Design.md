@@ -43,10 +43,11 @@ cli command: `jws login <user_name>`
 Users can only interact with jobs that they started.
 
 ### UX - CLI
-Scenarios
-Start a job: caller provides the command and arguments in a single string *** explore options
-`jws start -c "ls -l" -u alex`
-returns the unique identifier of the job
+Scenarios<br />
+Start a job:<br/ >
+caller provides the command and arguments in a single string *** explore options 
+`jws start -c "ls -l" -u alex`<br />
+returns the unique identifier of the job 
 
 Stop a job:<br />
 `jws stop -j <job_id> -u alex`<br />
@@ -128,45 +129,45 @@ message GetJobOutputResponse {
 ###  Design Details
 
 #### Client
-Uses gRPC to connect to the server, implements the CLI described above.
-Lifetime: is alive for the duration of the gRPC call, will exit upon completion.
-For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly.
-(ctrl-c can also be used for Start/Stop/GetStatus as well)
+Uses gRPC to connect to the server, implements the CLI described above. 
+Lifetime: is alive for the duration of the gRPC call, will exit upon completion. 
+For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly. 
+(ctrl-c can also be used for Start/Stop/GetStatus as well) 
 
 #### Server
-Must be run using `sudo` (required for cgroup actions)
-Will be executed within a docker container running Linux to enable the usage of cgroups
-Implements the gRPC server for the JobWorkerService described above.
-Supports concurrent connections.
-Must be able to handle cancellation of all gRPC calls: start/stop/getStatus/getOutput
+Must be run using `sudo` (required for cgroup actions) 
+Will be executed within a docker container running Linux to enable the usage of cgroups 
+Implements the gRPC server for the JobWorkerService described above. 
+Supports concurrent connections. 
+Must be able to handle cancellation of all gRPC calls: start/stop/getStatus/getOutput 
 Must be able to handle a clean shutdown:
 * Stop processing inbound requests
 * Stop any running jobs
 * Close all streaming connections (GetOutput)
 
 Assumptions:
-No limit on the amount of space it can use (memory or disk)
-Data is not persistent. Close the server, lose the data.
-TODO: for persistent storage, use database for 
+* No limit on the amount of space it can use (memory or disk)
+* Data is not persistent. Close the server, lose the data.
+TODO: for persistent storage, use database for job info, store logs to disl
 
-Implementation details:
+##### Implementation details:
 
 JobTracker:
-keeps a record of all jobs (map)
-Responsible for managing the jobs:
-Handles Start/Stop/GetStatus actions
-Enforces that only the owner of a process can access it.
-Each job is executed in a separate go function and can be canceled.
-A mutex will be used to synchronize access to the status of the job.
-Standard output (and Std Err) will be redirected to the output logging service
+* keeps a record of all jobs (map) 
+* Responsible for managing the jobs: 
+* Handles Start/Stop/GetStatus actions 
+* Enforces that only the owner of a process can access it. 
+* Each job is executed in a separate go function and can be canceled. 
+* A mutex will be used to synchronize access to the status of the job. 
+* Standard output (and Std Err) will be redirected to the output logging service 
 
-Logging Service:
-Is responsible for storing the output of all running processes
-Can stream the output to multiple listeners
-Uses channels to receive output events from the running process
-Uses channels to stream output events to listeners
-Supports adding/removing output event listeners for a given job
-When a new output event listener is added, all previous output for that job will be streamed to them.
+Logging Service: 
+* Is responsible for storing the output of all running processes
+* Can stream the output to multiple listeners
+* Uses channels to receive output events from the running process
+* Uses channels to stream output events to listeners
+* Supports adding/removing output event listeners for a given job
+* When a new output event listener is added, all previous output for that job will be streamed to them.
 
 
 ### Test Plan
