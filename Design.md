@@ -8,6 +8,7 @@ Job worker service that provides an API to run arbitrary Linux processes.
 
 ## Details
 
+
 ### Security
 Use mTLS for gRPC communication.
 
@@ -25,10 +26,12 @@ Use `openssl` to generate all of the required certs and keys mentioned above.
 
 User authentication and authorization
 
-Simple authorization:
-use gRPC interceptors: (will need for both unary and streaming connections)
+Simple authorization:<br />
+Uses hardcoded user 'tokens' to identify known users.
+use gRPC interceptors to check if the user is authorized.
 * On client: add user token
 * On server: check the user token against known, reject connection if unknown
+TODO add actual user authentication
 
 TODO need a way to select the current user: 
 Options:
@@ -45,41 +48,39 @@ Start a job: caller provides the command and arguments in a single string *** ex
 `jws start -c "ls -l" -u alex`
 returns the unique identifier of the job
 
-Stop a job:
-`jws stop -j <job_id> -u alex`
-
+Stop a job:<br />
+`jws stop -j <job_id> -u alex`<br />
 returns an error if something went wrong (unknown user, invalid job_id, access denied)
 
-
-Get the status of a job:
-`jws status -j <job_id>`
-
+Get the status of a job:<br />
+`jws status -j <job_id>`<br />
 returns the status of the job: "Pending, Active, Terminated"
   or an error: (uknown user, invalid job_id, access denied)
 
-Get the output of a job:
-`jws output -j <job_id>`
+Get the output of a job:<br />
+`jws output -j <job_id>`<br />
 
+<br />
 
-Sample usage:
-`jws start -c "ping google" -u alex`
+Sample usage:<br />
+`jws start -c "ping google" -u alex`<br />
 returns 100
 
-`jws status -j 100 -u alex`
+`jws status -j 100 -u alex`<br />
 returns Active
 
-`jws status -j 100 -u betty`
+`jws status -j 100 -u betty`<br />
 returns Access Denied
 
-`jws output -j 100 -u alex`
+`jws output -j 100 -u alex`<br />
 returns:
 ...
 
-from a second terminal:
+from a second terminal:<br />
 `jsw stop -j 100 -u alex`
 returns success (no error)
 
-in the previous terminal: (`jws output -j 100 -u alex`)
+in the previous terminal: (`jws output -j 100 -u alex`)<br />
 sees:
 ... <insert output here>
 
