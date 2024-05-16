@@ -12,32 +12,49 @@ Job worker service that provides an API to run arbitrary Linux processes.
 ### Security
 Use mTLS for gRPC communication.
 
-Required files:
+Create a self-signed root certificate authority (CA) to sign the certificates used by the clients and server. This CA will also be used to verify the authenticity of the certs during gRPC authentication. Using RSA 2048.
+
+Required files: Server
 | File | Description |
 | --- | --- |
 | server_cert.pem | the server's certificate (public key) |
 | server_key.pem | the server's private key |
-| server_ca_cert.pem | the certificate of the CA that can verify the server's certificate. |
+| root_ca.pem | the certificate of the CA that can verify the client's certificate |
+
+Required files: Client:
+| File | Description |
+| --- | --- |
 | client_cert.pem | the client's certificate (public key). |
 | client_key.pem | the client's private key. |
-| client_ca_cert.pem | the certificate of the CA that can verify the client's certificate |
+| root_ca.pem | the certificate of the CA that can verify the server's certificate. |
 
-Use `openssl` to generate all of the required certs and keys mentioned above.
+Use CloudFlare's `cfssl` CLI to create and sign all of the certs mentioned above.
 
-User authentication and authorization
+#### Creating the self-signed root CA
+`cfssl selfsign -config cfssl.json --profile rootca "Greenbeans Dev CA" csr.json | cfssljson -bare root`
 
-Simple authorization:<br />
-Uses hardcoded user 'tokens' to identify known users.
-use gRPC interceptors to check if the user is authorized.
-* On client: add user token
-* On server: check the user token against known, reject connection if unknown
-TODO add actual user authentication
+[a relative link](cfssl.json)
+[a relative link](csr.json)
 
-TODO need a way to select the current user: 
-Options:
-command line argument: `... -u alex`
-cli command: `jws login <user_name>`
-  user name would be stored in an env file and read in at startup
+# Creating and signing the server certificate:
+```
+cfssl genkey csr.json | cfssljson -bare server
+cfssl sign -ca root.pem -ca-key root-key.pem -config cfssl.json -profile server server.csr | cfssljson -bare server
+
+```
+
+# Creating and signing the client(s) certificates:
+```
+cfssl genkey csr.json | cfssljson -bare client
+cfssl sign -ca root.pem -ca-key root-key.pem -config cfssl.json -profile client client.csr | cfssljson -bare client
+```
+Multiple clients are supported, but each client will require it own certificate. The calls above can easily be modified to include additional client information (name):
+```
+cfssl genkey csr.json | cfssljson -bare client_alex
+cfssl sign -ca root.pem -ca-key root-key.pem -config cfssl.json -profile client client_alex.csr | cfssljson -bare client_alex
+```
+The CLI will include an optional parameter to specify the `client` key name, otherwise will default to 'client'.
+
 
 ### Privacy
 Users can only interact with jobs that they started.
@@ -46,11 +63,11 @@ Users can only interact with jobs that they started.
 Scenarios<br />
 Start a job:<br />
 caller provides the command and arguments in a single string *** explore options 
-`jws start -c "ls -l" -u alex`<br />
+`jws start -c "ls -l"`<br />
 returns the unique identifier of the job 
 
 Stop a job:<br />
-`jws stop -j <job_id> -u alex`<br />
+`jws stop -j <job_id>`<br />
 returns an error if something went wrong (unknown user, invalid job_id, access denied)
 
 Get the status of a job:<br />
@@ -61,37 +78,12 @@ returns the status of the job: "Pending, Active, Terminated"
 Get the output of a job:<br />
 `jws output -j <job_id>`<br />
 
-<br />
-
-Sample usage:<br />
-`jws start -c "ping google" -u alex`<br />
-returns 100
-
-`jws status -j 100 -u alex`<br />
-returns Active
-
-`jws status -j 100 -u betty`<br />
-returns Access Denied
-
-`jws output -j 100 -u alex`<br />
-returns:
-...
-
-from a second terminal:<br />
-`jsw stop -j 100 -u alex`<br />
-returns success (no error)
-
-in the previous terminal:<br />
-`jws output -j 100 -u alex`<br />
-sees:
-... <insert output here>
-
 
 ### Proto Specifications
 ```
 service JobWorkerService {
   rpc StartJob(StartJobRequest) returns (StartJobResponse);
-  rpc StopJob(StopJobRequest) returns (StopJobResponse);
+  rpc StopJob(StopJobRequest) returns (google.protobuf.empty);
   rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
   rpc GetJobOutput(GetJobOutputRequest) returns (stream GetJobOutputResponse);
 }
@@ -108,14 +100,20 @@ message StopJobRequest {
   string job_id = 1;
 }
 
-message StopJobResponse {}
-
 message GetJobStatusRequest {
   string job_id = 1;
 }
 
+enum JobStatus {
+  JOB_STATUS_UNDEFINED = 0;
+  JOB_STATUS_PENDING = 1;
+  JOB_STATUS_ACTIVE = 2;
+  JOB_STATUS_USER_CANCELLED = 3;
+  JOB_STATUS_TERMINATEDS = 4
+}
+
 message GetJobStatusResponse {
-  string status = 1;
+  JobStatus status = 1;
 }
 
 message GetJobOutputRequest {
@@ -123,7 +121,10 @@ message GetJobOutputRequest {
 }
 
 message GetJobOutputResponse {
-  string output_msg = 1;
+  oneof output_msg {
+    bytes stdout = 1;
+    string stderr = 2;
+  }
 }
 ```
 
@@ -131,15 +132,16 @@ message GetJobOutputResponse {
 
 #### Client
 Uses gRPC to connect to the server, implements the CLI described above.<br />
+Each unique client must have its own certificate 
 Lifetime: is alive for the duration of the gRPC call, will exit upon completion.<br />
 For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly.<br />
 (ctrl-c can also be used for Start/Stop/GetStatus as well)<br />
 
 #### Server
 Must be run using `sudo` (required for cgroup actions)<br />
-Will be executed within a docker container running Linux to enable the usage of cgroups<br />
+Can be executed directly on Linux or within a docker container running Linux if on macos or Windows<br />
 Implements the gRPC server for the JobWorkerService described above.<br />
-Supports concurrent connections.<br />
+Supports concurrent connections from multiple clients<br />
 Must be able to handle cancellation of all gRPC calls: start/stop/getStatus/getOutput<br />
 Must be able to handle a clean shutdown:
 * Stop processing inbound requests
@@ -149,7 +151,6 @@ Must be able to handle a clean shutdown:
 Assumptions:
 * No limit on the amount of space it can use (memory or disk)
 * Data is not persistent. Close the server, lose the data.
-TODO: for persistent storage, use database for job info, store logs to disl
 
 ##### Implementation details:
 
@@ -160,7 +161,8 @@ JobTracker:
 * Enforces that only the owner of a process can access it. 
 * Each job is executed in a separate go function and can be canceled. 
 * A mutex will be used to synchronize access to the status of the job. 
-* Standard output (and Std Err) will be redirected to the output logging service 
+* Standard output (Stdout) and StdErr will be redirected to the output logging service
+* Uses cgroups v2 to manage the CPU, Memory and Disk IO usage per job.
 
 Logging Service: 
 * Is responsible for storing the output of all running processes
@@ -173,3 +175,6 @@ Logging Service:
 
 ### Test Plan
 Unit test coverage for a subset of the code:
+* Authentication
+* Networking
+* Unhappy/error scenario.
