@@ -62,7 +62,7 @@ Users can only interact with jobs that they started.
 ### UX - CLI
 Scenarios<br />
 Start a job:<br />
-caller provides the command and arguments in a single string *** explore options 
+caller provides the command and arguments in a single string
 `jws start -c "ls -l"`<br />
 returns the unique identifier of the job 
 
