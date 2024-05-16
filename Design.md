@@ -33,8 +33,8 @@ Use CloudFlare's `cfssl` CLI to create and sign all of the certs mentioned above
 #### Creating the self-signed root CA
 `cfssl selfsign -config cfssl.json --profile rootca "Greenbeans Dev CA" csr.json | cfssljson -bare root`
 
-[a relative link](cfssl.json)
-[a relative link](csr.json)
+[cfssl.json](cfssl.json)
+[csr.json](csr.json)
 
 # Creating and signing the server certificate:
 ```
