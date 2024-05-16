@@ -164,6 +164,13 @@ JobTracker:
 * Standard output (Stdout) and StdErr will be redirected to the output logging service
 * Uses cgroups v2 to manage the CPU, Memory and Disk IO usage per job.
 
+| Resource | CGroup name | setting(s) |
+| --- | --- | --- |
+| CPU | cpu | cfs_period, cfs_quota_us |
+| Memory | memory | limit_in_bytes |
+| Disk IO | io | max |
+
+
 Logging Service: 
 * Is responsible for storing the output of all running processes
 * Can stream the output to multiple listeners
