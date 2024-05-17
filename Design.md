@@ -197,14 +197,43 @@ JobTracker:
 
 
 Logging Service: 
-* Is responsible for storing the output of all running processes
-* Can stream the output to multiple listeners
-* Uses Go channels to receive output events from the running process
-* Uses Go channels to stream output events to listeners
-* Supports adding/removing output event listeners for a given job
-* When a new output event listener is added, all previous output for that job will be streamed to them.
+* Is responsible for storing the output of all jobs, logs will be stored in memory.
+* Can stream live output to multiple gRPC streams via channels.
+* Provides interfaces to add/remove listeners (used by the gRPC server)
+* Provides interface to create a new logger, which implements the io.WriteCloser interface
 
+```
+type LoggingServive interface {
+  // Add a listener for output for a specified job. Output will be passed to the listener via the 
+  // channel supplied by caller. When a new listener is registered, ALL existing output for that job will be sent
+  // to this channel.
+  // When the job terminates, the channel will be closed by the logging service.
+  // If the the job was already terminted before the call was received, the channel will be closed after the 
+  // stored output is returned.
+  // returns: an id for this listner (used to remove it) and an error
+  AddListener(jobId string, outputCh chan []byte) (string, error);
 
+  // Remove a listener for a specific job, uses the id returned by the AddListener call to identify the listener
+  RemoveListener(listenerId string) error;
+
+  // Create a new logger for the specified job id.
+  // Returns an instance of the ioWriteCloser interface, which will enable the output to be written to the l
+  NewLogger(jobId string) (io.WriteCloser, error);
+}
+```
+
+Basic flow:
+1. Server receives a call to `StartJob`
+2. `JobTracker` creates a new instance of `Job` with unique ID
+3. `JobTracker` calls `job.start` passing in the command, args, and an instance of `io.WriteCloser`
+4. `job.start` does some setup, then fires off a go routine to execute the command in.
+5. Stdout and stderr are redirected to an `io.ReadCloser` interface.
+6. Process will be added to the appropriate cgroups groups.
+7. Upon receving output, will call to the io.Write interface to store the output
+8. Within the logging service, lock the log's mutex, append the new data, send updates on listener channels (if any), release the mutex
+9. Continue to consume output until the process ends or is cancelled.
+10. call `Close` on the logger.
+11. The logger will then close the listener channels and set the status of the log file to 'complete'
 
 ### Test Plan
 Unit test coverage for a subset of the code:
