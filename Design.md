@@ -183,7 +183,7 @@ JobTracker:
 * A mutex will be used to synchronize access to the status of the job. 
 * Standard output (`stdout`) and `stderr` will be redirected to the output logging service.
 * Uses cgroups v2 to manage the CPU, Memory and Disk IO usage per job.<br />
-_Using cgroups v2 because of its hierarchical tree-like structure, new resource controllers, and better performance_
+_Using cgroups v2 because of its hierarchical tree-like structure, new resource controllers, and better performance._
 
 | Resource | CGroup name | setting(s) |
 | --- | --- | --- |
