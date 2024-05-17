@@ -10,7 +10,7 @@ Job worker service that provides an API to run arbitrary Linux processes.
 
 
 ### Security
-Use mTLS for gRPC communication.
+Use mTLS for gRPC communication. TLS version 1.3 only.
 
 Create a self-signed root certificate authority (CA) to sign the certificates used by the clients and server. This CA will also be used to verify the authenticity of the certs during gRPC authentication. Using RSA 2048.
 
@@ -33,8 +33,8 @@ Use CloudFlare's `cfssl` CLI to create and sign all of the certs mentioned above
 #### Creating the self-signed root CA
 `cfssl selfsign -config cfssl.json --profile rootca "Greenbeans Dev CA" csr.json | cfssljson -bare root`
 
-[a relative link](cfssl.json)
-[a relative link](csr.json)
+[cfssl.json](cfssl.json)
+[csr.json](csr.json)
 
 # Creating and signing the server certificate:
 ```
@@ -82,48 +82,73 @@ Get the output of a job:<br />
 ### Proto Specifications
 ```
 service JobWorkerService {
+  // Starts a job using the specified command and arguments, 
+  // will return immediatelly after starting the job with the unique id of the job
   rpc StartJob(StartJobRequest) returns (StartJobResponse);
+
+  // Stops the specified job, blocks until the job finishes.
   rpc StopJob(StopJobRequest) returns (google.protobuf.empty);
+
+  // Gets the status of specified job, returns immediately. See enum below for possible values.
   rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
+
+  // Gets the output of the specified job: uses server streaming to deliver the output.
+  // If the specified job does not exist, will return an error and close the stream
+  // If the job does exist, returns all stored output for the job.
+  // if the job has ended (status is terminated or user_cancelled), will close the stream.
+  // if the status is active, will return all additional output as it is generated.
+  // The stream will automatically be closed by the server when the job terminates or is stopped by the user.
+  // If the client hits ctrl-c, or is terminated, the stream will closed from client side.
+  // For simplicty, server does not keep any information related to what client has seen what. 
+  // You call this RPC, you get all the output.
   rpc GetJobOutput(GetJobOutputRequest) returns (stream GetJobOutputResponse);
 }
 
+// the request message containing the comand (with arguments to start)
 message StartJobRequest {
   string cmd = 1;
 }
 
+// the response message containing the id of the newly started job
 message StartJobResponse {
   string job_id = 1;
 }
 
+// the request to stop the job with the given job_id
 message StopJobRequest {
   string job_id = 1;
 }
 
+// the request to get the status of the specified job
 message GetJobStatusRequest {
   string job_id = 1;
 }
 
-enum JobStatus {
-  JOB_STATUS_UNDEFINED = 0;
-  JOB_STATUS_PENDING = 1;
-  JOB_STATUS_ACTIVE = 2;
-  JOB_STATUS_USER_CANCELLED = 3;
-  JOB_STATUS_TERMINATEDS = 4
-}
-
+// the response containing the status of the specified job
 message GetJobStatusResponse {
+  // an enum containing all possible job statuses
+  enum JobStatus {
+    JOB_STATUS_UNDEFINED = 0;
+    JOB_STATUS_PENDING = 1;
+    JOB_STATUS_ACTIVE = 2;
+    JOB_STATUS_USER_CANCELLED = 3;
+    JOB_STATUS_TERMINATEDS = 4
+  }
+
   JobStatus status = 1;
 }
 
+// the request to get the output of a specified job
 message GetJobOutputRequest {
   string job_id = 1;
 }
 
+// a response containing output from the specified job, can be from either stdout or stderr.
+// simplify this: return only 'output', can be either stdout or stderr
 message GetJobOutputResponse {
   oneof output_msg {
     bytes stdout = 1;
-    string stderr = 2;
+    bytes stderr = 2;
   }
 }
 ```
@@ -174,10 +199,11 @@ JobTracker:
 Logging Service: 
 * Is responsible for storing the output of all running processes
 * Can stream the output to multiple listeners
-* Uses channels to receive output events from the running process
-* Uses channels to stream output events to listeners
+* Uses Go channels to receive output events from the running process
+* Uses Go channels to stream output events to listeners
 * Supports adding/removing output event listeners for a given job
 * When a new output event listener is added, all previous output for that job will be streamed to them.
+
 
 
 ### Test Plan
