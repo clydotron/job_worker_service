@@ -128,7 +128,7 @@ message GetJobStatusResponse {
     JOB_STATUS_PENDING = 1;
     JOB_STATUS_ACTIVE = 2;
     JOB_STATUS_USER_CANCELLED = 3;
-    JOB_STATUS_TERMINATEDS = 4
+    JOB_STATUS_TERMINATED = 4
   }
 
   JobStatus status = 1;
@@ -140,7 +140,6 @@ message GetJobOutputRequest {
 }
 
 // a response containing output from the specified job, can be from either stdout or stderr.
-// simplify this: return only 'output', can be either stdout or stderr
 message GetJobOutputResponse {
   oneof output_msg {
     bytes stdout = 1;
@@ -153,10 +152,10 @@ message GetJobOutputResponse {
 
 #### Client
 Uses gRPC to connect to the server, implements the CLI described above.<br />
-Each unique client must have its own certificate<br />
+Each unique client must have its own certificate.<br />
 Lifetime: is alive for the duration of the gRPC call, will exit upon completion.<br />
-For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly.<br />
-(ctrl-c can also be used for Start/Stop/GetStatus as well)<br />
+For never ending output streams (like `ping google`) user can use ctrl-c to exit cleanly.<br />
+Ctrl-c can also be used for Start/Stop/GetStatus as well.<br />
 
 #### Server
 Must be run using `sudo` (required for cgroup actions)<br />
@@ -182,8 +181,9 @@ JobTracker:
 * Enforces that only the owner of a process can access it. 
 * Each job is executed in a separate go function and can be canceled. 
 * A mutex will be used to synchronize access to the status of the job. 
-* Standard output (Stdout) and StdErr will be redirected to the output logging service
+* Standard output (`stdout`) and `stderr` will be redirected to the output logging service.
 * Uses cgroups v2 to manage the CPU, Memory and Disk IO usage per job.
+_ _Using cgroups v2 because of its hierarchical tree-like structure, new resource controllers, and better performance_ _
 
 | Resource | CGroup name | setting(s) |
 | --- | --- | --- |
