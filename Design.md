@@ -10,7 +10,8 @@ Job worker service that provides an API to run arbitrary Linux processes.
 
 
 ### Security
-Use mTLS for gRPC communication. TLS version 1.3 only.
+Use mTLS for gRPC communication.<br />
+Supports only TLS version 1.3: faster TLS handshake (0-3 packets vs 5-7) resulting in lower latency (faster) and simpler, stronger cipher suites: only includes those with no known vunerabilities.
 
 Create a self-signed root certificate authority (CA) to sign the certificates used by the clients and server. This CA will also be used to verify the authenticity of the certs during gRPC authentication. Using RSA 2048.
 
