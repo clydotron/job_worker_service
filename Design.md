@@ -33,27 +33,23 @@ Use CloudFlare's `cfssl` CLI to create and sign all of the certs mentioned above
 #### Creating the self-signed root CA
 `cfssl selfsign -config cfssl.json --profile rootca "Greenbeans Dev CA" csr.json | cfssljson -bare root`
 
-[cfssl.json](cfssl.json)
+[cfssl.json](cfssl.json)<br />
 [csr.json](csr.json)
 
-# Creating and signing the server certificate:
+#### Creating and signing the server certificate:
 ```
 cfssl genkey csr.json | cfssljson -bare server
 cfssl sign -ca root.pem -ca-key root-key.pem -config cfssl.json -profile server server.csr | cfssljson -bare server
-
 ```
 
-# Creating and signing the client(s) certificates:
+#### Creating and signing the client(s) certificates:
 ```
 cfssl genkey csr.json | cfssljson -bare client
 cfssl sign -ca root.pem -ca-key root-key.pem -config cfssl.json -profile client client.csr | cfssljson -bare client
 ```
 Multiple clients are supported, but each client will require it own certificate. The calls above can easily be modified to include additional client information (name):
-```
-cfssl genkey csr.json | cfssljson -bare client_alex
-cfssl sign -ca root.pem -ca-key root-key.pem -config cfssl.json -profile client client_alex.csr | cfssljson -bare client_alex
-```
-The CLI will include an optional parameter to specify the `client` key name, otherwise will default to 'client'.
+
+By default the client uses `client_cert.pem` and `client_key.pem`, the CLI will include an optional parameter to specify the `client` key name: example: `-key client_xyz` would tell the client to use `client_xyz_cert.pem` and `client_xyz_key.pem` 
 
 
 ### Privacy
@@ -157,7 +153,7 @@ message GetJobOutputResponse {
 
 #### Client
 Uses gRPC to connect to the server, implements the CLI described above.<br />
-Each unique client must have its own certificate 
+Each unique client must have its own certificate<br />
 Lifetime: is alive for the duration of the gRPC call, will exit upon completion.<br />
 For never ending output streams (like 'ping google') user can use ctrl-c to exit cleanly.<br />
 (ctrl-c can also be used for Start/Stop/GetStatus as well)<br />
@@ -197,7 +193,7 @@ JobTracker:
 
 
 Logging Service: 
-* Is responsible for storing the output of all jobs, logs will be stored in memory.
+* Is responsible for storing the output of all jobs, logs will be stored in memory using `bufio`.
 * Can stream live output to multiple gRPC streams via channels.
 * Provides interfaces to add/remove listeners (used by the gRPC server)
 * Provides interface to create a new logger, which implements the io.WriteCloser interface
