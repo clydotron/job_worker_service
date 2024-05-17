@@ -62,7 +62,7 @@ Users can only interact with jobs that they started.
 ### UX - CLI
 Scenarios<br />
 Start a job:<br />
-caller provides the command and arguments in a single string *** explore options 
+caller provides the command and arguments in a single string
 `jws start -c "ls -l"`<br />
 returns the unique identifier of the job 
 
@@ -73,7 +73,7 @@ returns an error if something went wrong (unknown user, invalid job_id, access d
 Get the status of a job:<br />
 `jws status -j <job_id>`<br />
 returns the status of the job: "Pending, Active, Terminated"
-  or an error: (uknown user, invalid job_id, access denied)
+  or an error: (unknown user, invalid job_id, access denied)
 
 Get the output of a job:<br />
 `jws output -j <job_id>`<br />
